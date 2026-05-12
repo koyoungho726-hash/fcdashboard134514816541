@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FCM 주간 서비스 대시보드</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root{--bg:#ffffff;--bg2:#f7f7f5;--bg3:#f0efe9;--text:#1a1a18;--text2:#6b6b67;--text3:#9b9b95;--border:rgba(0,0,0,0.1);--border2:rgba(0,0,0,0.18);--accent:#00a86b;--green:#00a86b;--red:#e04a2a;--info-bg:#e6f1fb;--info-text:#0c447c;--warn-bg:#faeeda;--warn-text:#854f0b;--danger-bg:#fcebeb;--danger-text:#a32d2d;--success-bg:#eaf3de;--success-text:#3b6d11;--radius:8px;--radiuslg:12px}
+  @media(prefers-color-scheme:dark){:root{--bg:#1c1c1a;--bg2:#252523;--bg3:#2e2e2b;--text:#f0efe9;--text2:#a0a09a;--text3:#6b6b67;--border:rgba(255,255,255,0.1);--border2:rgba(255,255,255,0.18);--info-bg:#042c53;--info-text:#b5d4f4;--warn-bg:#412402;--warn-text:#fac775;--danger-bg:#501313;--danger-text:#f7c1c1;--success-bg:#173404;--success-text:#c0dd97}}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,'Pretendard','Apple SD Gothic Neo',sans-serif;background:var(--bg3);color:var(--text);font-size:14px;line-height:1.6}
+  .wrap{max-width:1100px;margin:0 auto;padding:24px 20px 48px}
+  .header{padding-bottom:16px;border-bottom:.5px solid var(--border2);margin-bottom:24px}
+  .header h1{font-size:20px;font-weight:600;display:flex;align-items:center;gap:8px}
+  .header .meta{font-size:12px;color:var(--text2);margin-top:4px}
+  .badge{background:var(--accent);color:#fff;font-size:11px;padding:2px 8px;border-radius:20px;font-weight:500}
+  .badge-warn{background:var(--warn-bg);color:var(--warn-text);font-size:10px;padding:2px 7px;border-radius:20px;font-weight:500}
+  .section{margin-bottom:28px}
+  .section-title{font-size:12px;font-weight:600;color:var(--text2);letter-spacing:.06em;text-transform:uppercase;margin-bottom:12px}
+  .kpi-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+  .kpi-grid4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+  .kpi{background:var(--bg);border:.5px solid var(--border);border-radius:var(--radiuslg);padding:14px 16px}
+  .kpi .label{font-size:11px;color:var(--text2);margin-bottom:6px}
+  .kpi .val{font-size:22px;font-weight:600;letter-spacing:-.5px}
+  .kpi .wow{font-size:11px;margin-top:4px}
+  .up{color:var(--green)}.down{color:var(--red)}
+  .chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .chart-card{background:var(--bg);border:.5px solid var(--border);border-radius:var(--radiuslg);padding:16px}
+  .chart-card .c-title{font-size:12px;font-weight:500;color:var(--text2);margin-bottom:4px;display:flex;align-items:center;gap:6px}
+  .legend{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px;font-size:11px;color:var(--text2)}
+  .legend span{display:flex;align-items:center;gap:4px}
+  .legend .dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+  .chart-wrap{position:relative;height:170px}
+  .tbl-wrap{overflow-x:auto;background:var(--bg);border:.5px solid var(--border);border-radius:var(--radiuslg)}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th{background:var(--bg2);font-weight:500;color:var(--text2);text-align:left;padding:8px 12px;border-bottom:.5px solid var(--border);white-space:nowrap}
+  td{padding:7px 12px;border-bottom:.5px solid var(--border);white-space:nowrap}
+  tr:last-child td{border-bottom:none}
+  .latest td{background:var(--bg2);font-weight:500}
+  .na-cell{color:var(--text3);font-style:italic;font-size:11px}
+  .issue-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+  .icard{background:var(--bg);border:.5px solid var(--border);border-radius:var(--radiuslg);padding:14px;display:flex;flex-direction:column;gap:8px}
+  .icard-head{display:flex;justify-content:space-between;align-items:flex-start}
+  .icard-week{font-size:13px;font-weight:600}
+  .icard-dates{font-size:10px;color:var(--text3);font-weight:400}
+  .svc-badge{font-size:10px;padding:2px 7px;border-radius:20px;font-weight:500;white-space:nowrap}
+  .b-fcm{background:var(--success-bg);color:var(--success-text)}
+  .b-crisis{background:var(--danger-bg);color:var(--danger-text)}
+  .tags{display:flex;flex-wrap:wrap;gap:4px}
+  .tag{font-size:10px;padding:2px 6px;border-radius:4px;border:.5px solid}
+  .tag-risk{border-color:#f7c1c1;color:var(--danger-text);background:var(--danger-bg)}
+  .tag-best{border-color:#fac775;color:var(--warn-text);background:var(--warn-bg)}
+  .tag-spread{border-color:#b5d4f4;color:var(--info-text);background:var(--info-bg)}
+  .tag-str{border-color:var(--border);color:var(--text3);background:var(--bg3)}
+  .issues{list-style:none;display:flex;flex-direction:column;gap:4px}
+  .issues li{font-size:12px;color:var(--text);line-height:1.5;padding-left:10px;position:relative}
+  .issues li::before{content:"·";position:absolute;left:0;color:var(--text3)}
+  .hi{color:var(--red);font-weight:500}
+  .divider{border:none;border-top:.5px solid var(--border);margin:24px 0}
+  .footer{font-size:11px;color:var(--text3);padding-top:12px;border-top:.5px solid var(--border);display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px}
+  .kw-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px}
+  .kw-card{background:var(--bg);border:.5px solid var(--border);border-radius:var(--radiuslg);padding:16px}
+  .kw-title{font-size:12px;font-weight:600;color:var(--text2);margin-bottom:10px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="header">
+  <h1>📱 FC Mobile 주간 서비스 대시보드 <span class="badge">최신</span></h1>
+  <div class="meta">데이터 출처: NXLog KPI 추이 (nxlogreport_manage@nexon.co.kr) &nbsp;·&nbsp; 기준 주차: <strong>5월 1주 (4/28~5/4)</strong></div>
+</div>
+
+<div class="section">
+  <div class="section-title">🎯 주요 지표 — 5월 1주 (4/28~5/4)</div>
+  <div class="kpi-grid">
+    <div class="kpi"><div class="label">주간 UU</div><div class="val" id="k-uu">—</div><div class="wow" id="k-uu-w"></div></div>
+    <div class="kpi"><div class="label">주간 NRU</div><div class="val" id="k-nru">—</div><div class="wow" id="k-nru-w"></div></div>
+    <div class="kpi"><div class="label">MCU (최고 동접)</div><div class="val" id="k-mcu">—</div><div class="wow" id="k-mcu-w"></div></div>
+    <div class="kpi"><div class="label">ACU (평균 동접)</div><div class="val" id="k-acu">—</div><div class="wow" id="k-acu-w"></div></div>
+    <div class="kpi"><div class="label">주간 매출</div><div class="val" id="k-rev">—</div><div class="wow" id="k-rev-w"></div></div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">📊 추가 지표</div>
+  <div class="kpi-grid4">
+    <div class="kpi"><div class="label">PUR (%)</div><div class="val" id="k-pur">—</div><div class="wow" id="k-pur-w"></div></div>
+    <div class="kpi"><div class="label">ARPPU (원)</div><div class="val" id="k-arppu">—</div><div class="wow" id="k-arppu-w"></div></div>
+    <div class="kpi"><div class="label">구매유저</div><div class="val" id="k-payer">—</div><div class="wow" id="k-payer-w"></div></div>
+    <div class="kpi"><div class="label">복귀유저 (30일)</div><div class="val" id="k-ret">—</div><div class="wow" id="k-ret-w"></div></div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">📈 트렌드 (8주)</div>
+  <div class="chart-grid">
+    <div class="chart-card">
+      <div class="c-title">주간 UU 트렌드</div>
+      <div class="legend"><span><span class="dot" style="background:#00a86b"></span>UU</span></div>
+      <div class="chart-wrap"><canvas id="cUU" role="img" aria-label="FCM 주간 UU 8주 트렌드">UU 트렌드</canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="c-title">주간 NRU 트렌드</div>
+      <div class="legend"><span><span class="dot" style="background:#1a7cff"></span>NRU</span></div>
+      <div class="chart-wrap"><canvas id="cNRU" role="img" aria-label="FCM 주간 NRU 8주 트렌드">NRU 트렌드</canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="c-title">MCU · ACU 트렌드 <span class="badge-warn">4월 3주 이상치 제외</span></div>
+      <div class="legend">
+        <span><span class="dot" style="background:#7c3aed"></span>MCU</span>
+        <span><span class="dot" style="background:#c084fc;border:1px dashed #7c3aed"></span>ACU</span>
+      </div>
+      <div class="chart-wrap"><canvas id="cCC" role="img" aria-label="FCM MCU ACU 8주 트렌드">MCU ACU 트렌드</canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="c-title">주간 매출 추이 (억원)</div>
+      <div class="legend"><span><span class="dot" style="background:#e04a2a"></span>총 매출</span></div>
+      <div class="chart-wrap"><canvas id="cRev" role="img" aria-label="FCM 주간 매출 8주 트렌드">매출 트렌드</canvas></div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">📋 트래픽 상세 데이터</div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>주차</th><th>MCU</th><th>ACU</th><th>UU</th><th>UU WoW</th><th>NRU</th><th>NRU WoW</th><th>복귀유저</th></tr></thead>
+      <tbody id="tb-traffic"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">💳 매출 상세 데이터</div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>주차</th><th>총 매출</th><th>매출 WoW</th><th>구매유저</th><th>PUR (%)</th><th>ARPPU (원)</th></tr></thead>
+      <tbody id="tb-rev"></tbody>
+    </table>
+  </div>
+</div>
+
+<hr class="divider">
+
+<div class="section">
+  <div class="section-title">🔥 FCM 유저보이스 — 5월 1주 (4/28~5/4)</div>
+  <div class="kw-grid">
+    <div class="kw-card">
+      <div class="kw-title">📊 트렌딩 키워드 (uservoice@nexon.co.kr)</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">
+        <span style="font-size:11px;padding:3px 10px;border-radius:20px;background:var(--danger-bg);color:var(--danger-text);font-weight:500">버그 🔥</span>
+        <span style="font-size:11px;padding:3px 10px;border-radius:20px;background:var(--danger-bg);color:var(--danger-text);font-weight:500">진화 오류</span>
+        <span style="font-size:11px;padding:3px 10px;border-radius:20px;background:var(--warn-bg);color:var(--warn-text);font-weight:500">롤백</span>
+        <span style="font-size:11px;padding:3px 10px;border-radius:20px;background:var(--warn-bg);color:var(--warn-text);font-weight:500">제재</span>
+        <span style="font-size:11px;padding:3px 10px;border-radius:20px;background:var(--bg2);color:var(--text2)">쿠폰</span>
+        <span style="font-size:11px;padding:3px 10px;border-radius:20px;background:var(--bg2);color:var(--text2)">스타터팩</span>
+        <span style="font-size:11px;padding:3px 10px;border-radius:20px;background:var(--bg2);color:var(--text2)">이적시장</span>
+      </div>
+      <div style="font-size:11px;color:var(--text2);margin-bottom:6px;font-weight:500">긍부정 비중 (FCM KR 주간 평균)</div>
+      <div style="display:flex;height:8px;border-radius:4px;overflow:hidden;gap:2px">
+        <div style="width:11%;background:#00a86b;border-radius:4px 0 0 4px"></div>
+        <div style="width:34%;background:#888"></div>
+        <div style="width:48%;background:#d0d0c8"></div>
+        <div style="width:7%;background:#1a7cff;border-radius:0 4px 4px 0"></div>
+      </div>
+      <div style="display:flex;gap:12px;margin-top:6px;font-size:10px;color:var(--text3)">
+        <span style="color:#00a86b">■ 긍정 11%</span><span style="color:#888">■ 부정 34%</span><span>■ 중립 48%</span><span style="color:#1a7cff">■ 일상 7%</span>
+      </div>
+    </div>
+    <div class="kw-card">
+      <div class="kw-title">📰 주간 주요 이슈 (nop-notification@nexon.co.kr)</div>
+      <ul class="issues" style="gap:6px">
+        <li class="hi">진화 오류 버그 → 롤백 불만 약 70건 확산 (4/26)</li>
+        <li class="hi">버그 악용 제재 관련 불만 약 10건</li>
+        <li>진화 관련 스트리머 영상 탐지 (영미터, 27.9만)</li>
+        <li>범내려온다 이벤트 보상 표기 오류</li>
+        <li>이적시장 이용 불가 및 이용 정지 불만</li>
+        <li>스타터팩 발트래핑 확률 이상 의심</li>
+        <li>쿠폰 사용 오류 (5/1)</li>
+        <li>이벤트 성공 카운트 오류 (2건)</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">💬 FCM 주차별 이슈 동향</div>
+  <div class="issue-grid">
+    <div class="icard">
+      <div class="icard-head"><span class="icard-week">3월 2주 <span class="icard-dates">3/9~3/15</span></span><span class="svc-badge b-fcm">FCM</span></div>
+      <div class="tags"><span class="tag tag-best">베스트|불만</span><span class="tag tag-risk">리스크</span></div>
+      <ul class="issues">
+        <li>확률 이상 의심 (1건) 커뮤니티 등록</li>
+        <li>프라임 토큰 시스템 관련 불만</li>
+        <li>플레이 중 선수 순간이동 현상 제보</li>
+      </ul>
+    </div>
+    <div class="icard">
+      <div class="icard-head"><span class="icard-week">3월 3주 <span class="icard-dates">3/16~3/22</span></span><span class="svc-badge b-fcm">FCM</span></div>
+      <div class="tags"><span class="tag tag-best">베스트|불만</span></div>
+      <ul class="issues"><li>특별한 신규 이슈 없음, 일반 불만 소수</li></ul>
+    </div>
+    <div class="icard">
+      <div class="icard-head"><span class="icard-week">3월 4주 <span class="icard-dates">3/23~3/29</span></span><span class="svc-badge b-fcm">FCM</span></div>
+      <div class="tags"><span class="tag tag-best">베스트|불만</span></div>
+      <ul class="issues"><li>강화/진화 확률 문제 베스트 등록</li></ul>
+    </div>
+    <div class="icard">
+      <div class="icard-head"><span class="icard-week">3월 5주 <span class="icard-dates">3/30~4/5</span></span><span class="svc-badge b-fcm">FCM</span></div>
+      <div class="tags"><span class="tag tag-best">베스트|불만</span><span class="tag tag-risk">리스크</span></div>
+      <ul class="issues">
+        <li>특성 초기화 보상 문제</li>
+        <li>강화/진화 확률 문제 지속</li>
+        <li>확률 이상 의심 (1건)</li>
+      </ul>
+    </div>
+    <div class="icard">
+      <div class="icard-head"><span class="icard-week">4월 1주 <span class="icard-dates">4/6~4/12</span></span><span class="svc-badge b-fcm">FCM</span></div>
+      <div class="tags"><span class="tag tag-best">베스트|불만</span><span class="tag tag-risk">리스크</span></div>
+      <ul class="issues"><li>강화/진화 확률 이상 의심 및 불만</li></ul>
+    </div>
+    <div class="icard">
+      <div class="icard-head"><span class="icard-week">4월 2주 <span class="icard-dates">4/13~4/19</span></span><span class="svc-badge b-fcm">FCM</span></div>
+      <div class="tags"><span class="tag tag-best">베스트|불만</span></div>
+      <ul class="issues"><li>일반 불만 지속, 특별한 확산 이슈 없음</li></ul>
+    </div>
+    <div class="icard">
+      <div class="icard-head"><span class="icard-week">4월 3주 <span class="icard-dates">4/20~4/26</span></span><span class="svc-badge b-crisis">FCM 위기</span></div>
+      <div class="tags"><span class="tag tag-spread">확산동향</span><span class="tag tag-risk">리스크</span><span class="tag tag-str">스트리머</span></div>
+      <ul class="issues">
+        <li class="hi">진화 오류 이슈 확산 — 스트리머 영상 탐지</li>
+        <li class="hi">진화버그 롤백 예정 불만 약 70건 확산</li>
+        <li>버그 악용 제재 불만 약 10건</li>
+        <li>이벤트 카운트 오류·정답 노출 의심</li>
+        <li>범내려온다 이벤트 보상 표기 오류</li>
+        <li>친구 목록 초기화 불만 (리스크|급상승)</li>
+      </ul>
+    </div>
+    <div class="icard">
+      <div class="icard-head"><span class="icard-week">4월 4주 <span class="icard-dates">4/27~5/3</span></span><span class="svc-badge b-fcm">FCM</span></div>
+      <div class="tags"><span class="tag tag-spread">확산동향</span><span class="tag tag-str">스트리머</span></div>
+      <ul class="issues">
+        <li>진화 오류·잠수함 패치 의심 영상 (스트리머)</li>
+        <li>이적시장 이용 불가 및 이용 정지 불만 약 5건</li>
+        <li>쿠폰 사용 오류 (5/1)</li>
+        <li>스타터팩 발트래핑 확률 이상 의심</li>
+        <li>진화 확률 테스트 라이브 탐지 (영미터, 27.9만)</li>
+      </ul>
+    </div>
+    <div class="icard">
+      <div class="icard-head"><span class="icard-week">5월 1주 <span class="icard-dates">4/28~5/4</span></span><span class="svc-badge b-fcm">FCM</span></div>
+      <div class="tags"><span class="tag tag-best">베스트|불만</span><span class="tag tag-str">스트리머</span></div>
+      <ul class="issues">
+        <li>진화 관련 지속 후속 불만</li>
+        <li>스타터팩 확률 이슈 커뮤니티 잔존</li>
+        <li>이적시장 이용 정지 문의 지속</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  <span>FCM WeekSummary · 기준 주차: 5월 1주 (4/28~5/4) · ※ 4월 3주차 MCU/ACU 이상치 제외</span>
+  <span>nxlogreport_manage · nop-notification · uservoice@nexon.co.kr</span>
+</div>
+
+</div>
+<script>
+const WEEKS=['3월 2주','3월 3주','3월 4주','3월 5주','4월 1주','4월 2주','4월 3주','4월 4주','5월 1주'];
+const DATES=['3/9~3/15','3/16~3/22','3/23~3/29','3/30~4/5','4/6~4/12','4/13~4/19','4/20~4/26','4/27~5/3','4/28~5/4'];
+
+// ★ 데이터 업데이트 시 이 배열만 수정하면 됩니다
+// MCU/ACU 이상치 주차는 null로 표기
+const W=[
+  {uu:736072,  mcu:22920, acu:13057, nru:85805, ret:18455,  rev:1701672941, payer:24440, pur:3.32, arppu:69627},
+  {uu:770866,  mcu:25200, acu:13747, nru:87061, ret:16213,  rev:1946674894, payer:26651, pur:3.46, arppu:73043},
+  {uu:763811,  mcu:22744, acu:13941, nru:49121, ret:15050,  rev:1456006564, payer:23715, pur:3.10, arppu:61396},
+  {uu:790816,  mcu:24576, acu:13964, nru:49045, ret:23365,  rev:1967025409, payer:26521, pur:3.35, arppu:74169},
+  {uu:782445,  mcu:21216, acu:12917, nru:40119, ret:21423,  rev:1623622573, payer:26027, pur:3.33, arppu:62382},
+  {uu:802982,  mcu:21416, acu:11799, nru:40998, ret:115644, rev:1473123007, payer:29558, pur:3.68, arppu:49838},
+  {uu:766440,  mcu:null,  acu:null,  nru:32270, ret:95968,  rev:937378457,  payer:18807, pur:2.45, arppu:49842},
+  {uu:496425,  mcu:17718, acu:7199,  nru:24755, ret:70535,  rev:1098035589, payer:13705, pur:2.76, arppu:80119},
+  {uu:427105,  mcu:12035, acu:5945,  nru:20019, ret:46451,  rev:814992206,  payer:11527, pur:2.70, arppu:70703},
+];
+
+function fmt(n){if(n==null)return'—';return n>=10000?(n/10000).toFixed(1)+'만':n.toLocaleString();}
+function fmtB(n){return(n/100000000).toFixed(1)+'억';}
+function wow(c,p){
+  if(c==null||p==null||p===0)return'';
+  const pct=(c-p)/p*100;
+  return`<span class="${pct>=0?'up':'down'}">${pct>=0?'▲':'▼'}${Math.abs(pct).toFixed(1)}%</span>`;
+}
+
+const lat=W[W.length-1], prv=W[W.length-2];
+document.getElementById('k-uu').textContent=fmt(lat.uu);
+document.getElementById('k-uu-w').innerHTML=wow(lat.uu,prv.uu);
+document.getElementById('k-nru').textContent=lat.nru.toLocaleString();
+document.getElementById('k-nru-w').innerHTML=wow(lat.nru,prv.nru);
+document.getElementById('k-mcu').textContent=lat.mcu!=null?lat.mcu.toLocaleString():'—';
+document.getElementById('k-mcu-w').innerHTML=wow(lat.mcu,prv.mcu);
+document.getElementById('k-acu').textContent=lat.acu!=null?lat.acu.toLocaleString():'—';
+document.getElementById('k-acu-w').innerHTML=wow(lat.acu,prv.acu);
+document.getElementById('k-rev').textContent=fmtB(lat.rev);
+document.getElementById('k-rev-w').innerHTML=wow(lat.rev,prv.rev);
+document.getElementById('k-pur').textContent=lat.pur.toFixed(2)+'%';
+document.getElementById('k-pur-w').innerHTML=wow(lat.pur,prv.pur);
+document.getElementById('k-arppu').textContent=lat.arppu.toLocaleString();
+document.getElementById('k-arppu-w').innerHTML=wow(lat.arppu,prv.arppu);
+document.getElementById('k-payer').textContent=lat.payer.toLocaleString();
+document.getElementById('k-payer-w').innerHTML=wow(lat.payer,prv.payer);
+document.getElementById('k-ret').textContent=lat.ret.toLocaleString();
+document.getElementById('k-ret-w').innerHTML=wow(lat.ret,prv.ret);
+
+const lo=(c,d)=>({borderColor:c,backgroundColor:c+'22',tension:.35,pointRadius:3,pointHoverRadius:5,fill:false,borderDash:d||[]});
+
+new Chart(document.getElementById('cUU'),{type:'line',data:{labels:WEEKS,datasets:[{label:'UU',data:W.map(w=>w.uu),...lo('#00a86b')}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>'UU: '+c.parsed.y.toLocaleString()}}},scales:{x:{ticks:{font:{size:10},maxRotation:30}},y:{ticks:{font:{size:10},callback:v=>(v/10000).toFixed(0)+'만'}}}}});
+
+new Chart(document.getElementById('cNRU'),{type:'bar',data:{labels:WEEKS,datasets:[{label:'NRU',data:W.map(w=>w.nru),backgroundColor:'#1a7cff55',borderColor:'#1a7cff',borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>'NRU: '+c.parsed.y.toLocaleString()}}},scales:{x:{ticks:{font:{size:10},maxRotation:30}},y:{ticks:{font:{size:10}}}}}});
+
+new Chart(document.getElementById('cCC'),{type:'line',data:{labels:WEEKS,datasets:[{label:'MCU',data:W.map(w=>w.mcu),...lo('#7c3aed')},{label:'ACU',data:W.map(w=>w.acu),...lo('#c084fc',[4,3])}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y==null?'이상치 제외':c.dataset.label+': '+c.parsed.y.toLocaleString()}}},scales:{x:{ticks:{font:{size:10},maxRotation:30}},y:{ticks:{font:{size:10}}}}}});
+
+new Chart(document.getElementById('cRev'),{type:'bar',data:{labels:WEEKS,datasets:[{label:'매출',data:W.map(w=>Math.round(w.rev/100000000*10)/10),backgroundColor:'#e04a2a55',borderColor:'#e04a2a',borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>'매출: '+c.parsed.y.toFixed(1)+'억'}}},scales:{x:{ticks:{font:{size:10},maxRotation:30}},y:{ticks:{font:{size:10},callback:v=>v+'억'}}}}});
+
+const tb1=document.getElementById('tb-traffic');
+const tb2=document.getElementById('tb-rev');
+W.forEach((w,i)=>{
+  const p=i>0?W[i-1]:null;
+  const isLast=i===W.length-1;
+  const mcuCell=w.mcu!=null?w.mcu.toLocaleString():`<span class="na-cell">이상치 제외</span>`;
+  const acuCell=w.acu!=null?w.acu.toLocaleString():`<span class="na-cell">이상치 제외</span>`;
+  const tr1=document.createElement('tr');
+  if(isLast)tr1.className='latest';
+  tr1.innerHTML=`<td>${WEEKS[i]}<br><span style="font-size:10px;color:#9b9b95">${DATES[i]}</span></td><td>${mcuCell}</td><td>${acuCell}</td><td>${w.uu.toLocaleString()}</td><td>${p?wow(w.uu,p.uu):'-'}</td><td>${w.nru.toLocaleString()}</td><td>${p?wow(w.nru,p.nru):'-'}</td><td>${w.ret.toLocaleString()}</td>`;
+  tb1.appendChild(tr1);
+  const tr2=document.createElement('tr');
+  if(isLast)tr2.className='latest';
+  tr2.innerHTML=`<td>${WEEKS[i]}<br><span style="font-size:10px;color:#9b9b95">${DATES[i]}</span></td><td>${fmtB(w.rev)}</td><td>${p?wow(w.rev,p.rev):'-'}</td><td>${w.payer.toLocaleString()}</td><td>${w.pur.toFixed(2)}%</td><td>${w.arppu.toLocaleString()}</td>`;
+  tb2.appendChild(tr2);
+});
+</script>
+</body>
+</html>
